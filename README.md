@@ -1,110 +1,116 @@
 # deepseek
 
-Claude Code を DeepSeek バックエンドで起動するためのグローバルコマンド `deepseek` をインストールします。
+[English](./README.md) · [日本語](./README.ja.md) · [简体中文](./README.zh-CN.md) · [한국어](./README.ko.md) · [Español](./README.es.md) · [Français](./README.fr.md)
 
-DeepSeek が公式に提供する Anthropic 互換エンドポイントを経由するため、プロキシ等は不要です。
+Installs a global `deepseek` command that launches Claude Code with DeepSeek as the backend.
 
-> **参考**: 環境変数の設計および接続方式は DeepSeek 公式ドキュメント
-> [Claude Code Integration Guide](https://api-docs.deepseek.com/guides/agent_integrations/claude_code)
-> を元にしています。本リポジトリは、そこで案内されている手動 `export` 手順を
-> `.env` + `make install` で再現可能・グローバル利用可能にする薄いラッパーです。
+It uses DeepSeek's official Anthropic-compatible endpoint, so no proxy or translation layer is required.
 
-## 必要なもの
+> **Reference**: The environment-variable layout and connection method are based on the official DeepSeek docs:
+> [Claude Code Integration Guide](https://api-docs.deepseek.com/guides/agent_integrations/claude_code).
+> This repo is a thin wrapper that turns the manual `export` steps from that guide into a reproducible,
+> globally-installable `.env` + `make install` workflow.
 
-- macOS / Linux と `bash`
+## Requirements
+
+- macOS / Linux with `bash`
 - `make`
-- [Claude Code](https://docs.anthropic.com/claude-code) (`claude` コマンドが PATH 上にあること)
-- DeepSeek の API キー（[platform.deepseek.com](https://platform.deepseek.com/) で発行）
+- [Claude Code](https://docs.anthropic.com/claude-code) (`claude` must be on your PATH)
+- A DeepSeek API key (issue one at [platform.deepseek.com](https://platform.deepseek.com/))
 
-## セットアップ
+## Setup
 
 ```bash
 make install
 ```
 
-これで以下が起こります:
+This will:
 
-1. `.env` が無ければ `.env.example` からコピーされる（パーミッション 600）
-2. `~/.local/bin/deepseek` が生成される（このディレクトリの `.env` への絶対パスを焼き込む）
-3. `~/.local/bin` が PATH に無ければ警告が出る
+1. Copy `.env.example` to `.env` if it doesn't exist (with `chmod 600`)
+2. Generate `~/.local/bin/deepseek`, with the absolute path to *this directory's* `.env` baked in
+3. Warn you if `~/.local/bin` is not on your PATH
 
-セットアップ後、`.env` を開いて API キーを記入してください。
+After install, open `.env` and fill in your API key.
 
-## `.env` の中身
+## `.env` variables
 
-| 変数 | 必須 | デフォルト | 説明 |
-|------|------|------------|------|
-| `DEEPSEEK_API_KEY` | はい | （無し） | DeepSeek の API キー（`sk-...`） |
-| `ANTHROPIC_MODEL` | いいえ | `deepseek-v4-pro` | メインのモデル |
-| `ANTHROPIC_DEFAULT_OPUS_MODEL` | いいえ | `deepseek-v4-pro` | Opus スロットに割り当てるモデル |
-| `ANTHROPIC_DEFAULT_SONNET_MODEL` | いいえ | `deepseek-v4-pro` | Sonnet スロットに割り当てるモデル |
-| `ANTHROPIC_DEFAULT_HAIKU_MODEL` | いいえ | `deepseek-v4-flash` | Haiku スロットに割り当てるモデル |
-| `CLAUDE_CODE_SUBAGENT_MODEL` | いいえ | `deepseek-v4-flash` | サブエージェント実行時のモデル |
-| `CLAUDE_CODE_EFFORT_LEVEL` | いいえ | `max` | Claude Code の effort レベル |
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DEEPSEEK_API_KEY` | yes | — | Your DeepSeek API key (`sk-...`) |
+| `ANTHROPIC_MODEL` | no | `deepseek-v4-pro` | Primary model |
+| `ANTHROPIC_DEFAULT_OPUS_MODEL` | no | `deepseek-v4-pro` | Model for the Opus slot |
+| `ANTHROPIC_DEFAULT_SONNET_MODEL` | no | `deepseek-v4-pro` | Model for the Sonnet slot |
+| `ANTHROPIC_DEFAULT_HAIKU_MODEL` | no | `deepseek-v4-flash` | Model for the Haiku slot |
+| `CLAUDE_CODE_SUBAGENT_MODEL` | no | `deepseek-v4-flash` | Model used for subagent invocations |
+| `CLAUDE_CODE_EFFORT_LEVEL` | no | `max` | Claude Code effort level |
 
-最低限 `DEEPSEEK_API_KEY` だけ書けば動きます:
+The minimum viable `.env` is just:
 
 ```dotenv
 DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-## 使い方
+## Usage
 
-任意のディレクトリで:
+From any directory:
 
 ```bash
 deepseek
 ```
 
-これだけで、このリポジトリの `.env` が読み込まれ、DeepSeek を裏に持った Claude Code が起動します。
+This loads this repo's `.env` and starts Claude Code with DeepSeek as the backend.
 
-`claude` 本体への引数はそのまま透過されます:
+Arguments are passed through to `claude` verbatim:
 
 ```bash
 deepseek --help
-deepseek -p "TypeScript の型定義を見直して"
+deepseek -p "Review my TypeScript type definitions"
 ```
 
-## 仕組み
+## How it works
 
-`deepseek` コマンドは生成時にこのディレクトリの `.env` への絶対パスが焼き込まれた薄いシェルスクリプトです。実行時に `.env` を読み込み、以下の Anthropic 互換環境変数を設定してから `claude` を `exec` します:
+The `deepseek` command is a thin shell script. At install time, the absolute path to this directory's `.env`
+is baked in. At runtime, it sources that `.env` and exports the Anthropic-compatible variables before
+`exec`-ing `claude`:
 
 - `ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`
 - `ANTHROPIC_AUTH_TOKEN=$DEEPSEEK_API_KEY`
-- 上表の各モデル指定
+- The model overrides listed above
 
-環境に残っている `ANTHROPIC_API_KEY` は `AUTH_TOKEN` を上書きしてしまうので、起動前に `unset` されます。
+If `ANTHROPIC_API_KEY` is set in your environment it would shadow `AUTH_TOKEN`, so the script `unset`s it
+before launching `claude`.
 
-## アンインストール
+## Uninstall
 
 ```bash
 make uninstall
 ```
 
-`~/.local/bin/deepseek` が削除されます。`.env` は残ります（手動で削除してください）。
+This removes `~/.local/bin/deepseek`. The `.env` file is left in place — delete it manually if you no
+longer need it.
 
-## トラブルシューティング
+## Troubleshooting
 
 **`deepseek: command not found`**
-`~/.local/bin` が PATH に通っていません。`~/.zshrc` 等に追記してください:
+`~/.local/bin` is not on your PATH. Add this to your shell rc (e.g. `~/.zshrc`):
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
 **`deepseek: DEEPSEEK_API_KEY is empty`**
-`.env` の `DEEPSEEK_API_KEY=` の右辺が空です。キーを記入してください。
+The right-hand side of `DEEPSEEK_API_KEY=` in `.env` is blank. Fill it in.
 
-**プロジェクトを別の場所に移動した**
-スクリプトには移動前の絶対パスが焼き込まれています。移動先で `make install` を再実行してください。
+**You moved the project to a different directory**
+The script has the old absolute path baked in. Re-run `make install` from the new location.
 
-**インストールパスを変えたい**
+**You want a different install prefix**
 ```bash
 make install PREFIX=/opt/local
 ```
-で `/opt/local/bin/deepseek` にインストールされます。
+This installs to `/opt/local/bin/deepseek` instead.
 
-## 参考リンク
+## References
 
-- [DeepSeek 公式: Claude Code Integration Guide](https://api-docs.deepseek.com/guides/agent_integrations/claude_code) — 本リポジトリのベースとなった公式手順
-- [DeepSeek Platform](https://platform.deepseek.com/) — API キー発行
-- [Claude Code](https://docs.anthropic.com/claude-code) — 本体ドキュメント
+- [DeepSeek: Claude Code Integration Guide](https://api-docs.deepseek.com/guides/agent_integrations/claude_code) — the official guide this repo is built on
+- [DeepSeek Platform](https://platform.deepseek.com/) — issue API keys
+- [Claude Code](https://docs.anthropic.com/claude-code) — upstream docs
